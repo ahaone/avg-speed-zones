@@ -1,0 +1,73 @@
+name: weekly-zone-bundle
+
+# Weekly regeneration of zones.json from the live Google MyMaps KML.
+# Publishes ONLY when the zone content actually changed (no-change runs commit nothing,
+# so phones see no update). Runs on GitHub's free public-repo minutes — no local machine needed.
+
+on:
+  schedule:
+    - cron: "0 3 * * 1"   # Mondays 03:00 UTC = 06:00 EEST
+  workflow_dispatch: {}   # manual run button, for testing
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out bundle repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Fetch live KML from Google MyMaps
+        run: |
+          curl -sL --max-time 60 \
+            "https://www.google.com/maps/d/kml?mid=1bydr93x-u18Oz3lm7ngmWhVTgsP2Eys&force=kml" \
+            -o latest.kml
+          mkdir -p kml && unzip -o -q latest.kml -d kml
+          test -s kml/doc.kml || { echo "::error::KML fetch failed"; exit 1; }
+
+      - name: Regenerate zones.json
+        run: |
+          python3 tools/gen_zones_json.py kml/doc.kml zones-new.json
+          echo "zones=$(python3 -c "import json;print(len(json.load(open('zones-new.json'))['zones']))")" >> "$GITHUB_ENV"
+
+      - name: Detect change vs published bundle
+        id: diff
+        run: |
+          if [ ! -f zones.json ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          python3 - <<'EOF' >> "$GITHUB_OUTPUT"
+          import json
+          a = json.load(open("zones.json")); b = json.load(open("zones-new.json"))
+          print("changed=" + ("false" if a.get("zones") == b.get("zones") else "true"))
+          EOF
+
+      - name: Bump bundle_version and publish
+        if: steps.diff.outputs.changed == 'true'
+        run: |
+          python3 - <<'EOF'
+          import json, re
+          cur = json.load(open("zones.json")).get("bundle_version", "v0")
+          m = re.match(r"v(\d+)", str(cur))
+          newv = f"v{int(m.group(1)) + 1}" if m else "v1"
+          data = json.load(open("zones-new.json"))
+          data["bundle_version"] = newv
+          json.dump(data, open("zones.json", "w"), ensure_ascii=False, indent=1)
+          print("published", newv)
+          EOF
+          git config user.name "zones-bot"
+          git config user.email "bot@avg-speed.local"
+          git add zones.json
+          git commit -m "zones: auto-refresh $(date -u '+%Y-%m-%d') — ${{ env.zones }} zones"
+          git push
+
+      - name: No-change summary
+        if: steps.diff.outputs.changed == 'false'
+        run: echo "MyMaps content unchanged — bundle stays as published (no commit)."
