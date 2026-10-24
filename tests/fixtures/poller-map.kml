@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <Folder>
+      <name>Certified</name>
+      <Placemark>
+        <name>North – South</name>
+        <description>Road A-1, limit 90</description>
+        <LineString><coordinates>25.0,42.0 25.1,42.1</coordinates></LineString>
+      </Placemark>
+    </Folder>
+  </Document>
+</kml>
