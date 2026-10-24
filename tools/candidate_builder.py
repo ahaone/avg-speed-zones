@@ -593,10 +593,19 @@ def _direction_record(
 ) -> dict[str, Any]:
     """Build one publisher-compatible directional record with independent gates."""
     source_direction = record["direction"]
-    official_status = source_direction.get("official_status", record["row"].get("official_status"))
-    if official_status not in {"CERTIFIED", "PENDING_VERIFICATION"}:
-        official_status = "PENDING_VERIFICATION"
-        issues = list(issues) + ["OFFICIAL_STATUS_UNKNOWN"]
+    row_status = record["row"].get("official_status")
+    section_status = source_direction.get("official_status")
+    allowed_statuses = {"CERTIFIED", "PENDING_VERIFICATION"}
+    status_conflict = row_status not in allowed_statuses or section_status != row_status
+    official_status = row_status if row_status in allowed_statuses else "PENDING_VERIFICATION"
+    if status_conflict:
+        issues = list(issues) + [
+            "OFFICIAL_STATUS_CONFLICT" if row_status in allowed_statuses else "OFFICIAL_STATUS_UNKNOWN"
+        ]
+        # Never let a more permissive duplicate section summary override the
+        # direct Phase 2 row. If either copy says pending, retain that status.
+        if row_status == "PENDING_VERIFICATION" or section_status == "PENDING_VERIFICATION":
+            official_status = "PENDING_VERIFICATION"
     source_section = identity["section"]
     section_reasons = source_section.get("reasons", [])
     if not isinstance(section_reasons, list):
@@ -644,7 +653,7 @@ def _direction_record(
 
     status = official_status
     all_pass = all(value == "PASS" for value in gates.values())
-    if conflict_reasons or any(value == "QUARANTINE" for value in gates.values()):
+    if status_conflict or conflict_reasons or any(value == "QUARANTINE" for value in gates.values()):
         release_state = "QUARANTINED"
     elif official_status == "PENDING_VERIFICATION":
         release_state = "UNDER_VERIFICATION"
