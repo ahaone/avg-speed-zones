@@ -274,6 +274,22 @@ class CandidateBuilderTests(unittest.TestCase):
         self.assertNotEqual(section["directions"]["reverse"]["release_state"], "ACTIVE")
         self.assertEqual(candidate["zones"], [])
 
+    def test_row_section_official_status_conflict_is_quarantined(self) -> None:
+        """Do not promote a pending Phase 2 row from a conflicting section summary."""
+        verification, kml, evidence = make_inputs()
+        target = next(section for section in verification["sections"] if section["section_key"] == "target")
+        reverse_key = target["directions"][1]["direction_key"]
+        row = next(row for row in verification["rows"] if row["direction_key"] == reverse_key)
+        row["official_status"] = "PENDING_VERIFICATION"
+
+        candidate = _build(verification, kml, evidence)
+        section = next(item for item in candidate["sections"] if item["section_key"] == "target")
+        reverse = section["directions"]["reverse"]
+        self.assertEqual(reverse["status"], "PENDING_VERIFICATION")
+        self.assertEqual(reverse["release_state"], "QUARANTINED")
+        self.assertIn("OFFICIAL_STATUS_CONFLICT", reverse["gate_details"]["reasons"])
+        self.assertEqual(candidate["zones"], [])
+
     def test_ambiguous_or_integer_certificate_evidence_is_held(self) -> None:
         """Require exactly SINGLE_CALLOUT evidence plus an exact direction claim."""
         for status in ("AMBIGUOUS", "UNREADABLE", "INTEGER_REVIEW"):
