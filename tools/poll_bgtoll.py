@@ -147,8 +147,74 @@ def _canonical_json(value: Any) -> bytes:
     return (json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False) + "\n").encode("utf-8")
 
 
+def _validate_timestamp(container: dict[str, Any], key: str, context: str, *, nullable: bool = False) -> None:
+    """Reject malformed persisted timestamps instead of treating them as absent."""
+    if key not in container:
+        return
+    value = container[key]
+    if value is None and nullable:
+        return
+    if _parse_time(value) is None:
+        raise PollError(f"STATE_INVALID: {context}.{key} must be a timezone-aware ISO timestamp")
+
+
+def _validate_status(value: dict[str, Any]) -> None:
+    """Validate state fields that carry WIM quotas, backoff, or source chronology."""
+    schema_version = value.get("schema_version", 1)
+    if type(schema_version) is not int or schema_version != 1:
+        raise PollError("STATE_INVALID: schema_version must be integer 1")
+    for source_name in ("map", "wim"):
+        source = value.get(source_name, {})
+        if not isinstance(source, dict):
+            raise PollError(f"STATE_INVALID: {source_name} must be an object")
+        value[source_name] = source
+
+    wim = value["wim"]
+    request_times = wim.get("request_times", [])
+    if not isinstance(request_times, list):
+        raise PollError("STATE_INVALID: wim.request_times must be an array")
+    for index, timestamp in enumerate(request_times):
+        if _parse_time(timestamp) is None:
+            raise PollError(f"STATE_INVALID: wim.request_times[{index}] must be a timezone-aware ISO timestamp")
+    strikes = wim.get("block_strikes", 0)
+    if type(strikes) is not int or strikes < 0:
+        raise PollError("STATE_INVALID: wim.block_strikes must be a non-negative integer")
+    _validate_timestamp(wim, "blocked_until", "wim", nullable=True)
+    for key in ("last_request_at", "last_attempt"):
+        _validate_timestamp(wim, key, "wim", nullable=True)
+
+    for source_name in ("map", "wim"):
+        source = value[source_name]
+        _validate_timestamp(source, "last_request_at", source_name, nullable=True)
+        _validate_timestamp(source, "last_attempt", source_name, nullable=True)
+        if "last_good" in source and source["last_good"] is not None:
+            last_good = source["last_good"]
+            if not isinstance(last_good, dict):
+                raise PollError(f"STATE_INVALID: {source_name}.last_good must be an object or null")
+            _validate_timestamp(last_good, "retrieved_at", f"{source_name}.last_good")
+            if "retrieved_at" not in last_good:
+                raise PollError(f"STATE_INVALID: {source_name}.last_good.retrieved_at is required")
+        if source_name == "map":
+            _validate_timestamp(source, "pending_wim_since", source_name, nullable=True)
+
+    for key in ("last_attempt",):
+        _validate_timestamp(value, key, "status", nullable=True)
+    if "last_success" in value and value["last_success"] is not None:
+        last_success = value["last_success"]
+        if not isinstance(last_success, dict):
+            raise PollError("STATE_INVALID: last_success must be an object or null")
+        _validate_timestamp(last_success, "retrieved_at", "last_success")
+    if "last_good_bundle" in value and value["last_good_bundle"] is not None:
+        bundle = value["last_good_bundle"]
+        if not isinstance(bundle, dict):
+            raise PollError("STATE_INVALID: last_good_bundle must be an object or null")
+        _validate_timestamp(bundle, "published_at", "last_good_bundle", nullable=True)
+    if "source_change_pending" in value and type(value["source_change_pending"]) is not bool:
+        raise PollError("STATE_INVALID: source_change_pending must be boolean")
+
+
 def _load_status(path: Path) -> dict[str, Any]:
-    """Load poller state, falling back to empty state while exposing parse failures."""
+    """Load and validate poller state; missing state is the only empty-state case."""
     try:
         value = json.loads(path.read_text(encoding="utf-8"))
     except FileNotFoundError:
@@ -157,6 +223,7 @@ def _load_status(path: Path) -> dict[str, Any]:
         raise PollError(f"STATE_INVALID: {error}") from error
     if not isinstance(value, dict):
         raise PollError("STATE_INVALID: status root must be an object")
+    _validate_status(value)
     value.setdefault("schema_version", 1)
     value.setdefault("map", {})
     value.setdefault("wim", {})
@@ -499,10 +566,18 @@ def _run_poll_unlocked(
     try:
         status = _load_status(config.status_path)
     except PollError as error:
-        failed_status = {"wim": {}, "map": {}, "state": "FAILED", "holds": [str(error)], "alerts": [],
-                         "exit_code": 1, "current_tier": None, "current_backoff": None}
-        result = _status_result(failed_status, now, config)
-        result["exit_code"] = 1
+        # Never replace damaged quota/backoff evidence with fresh counters. Leave the
+        # persisted bytes untouched so every scheduled tick remains network-silent
+        # until an operator performs explicit state recovery.
+        result = {
+            "state": "FAILED", "health": "STALE", "last_attempt": _utc(now),
+            "last_success": None, "last_success_age_seconds": None, "source_sha256": None,
+            "counts": {}, "current_tier": None, "current_backoff": None,
+            "skip_reason": "PERSISTED_STATE_INVALID", "source_change_pending": False,
+            "map_changed": False, "wim_requested": False, "source_changed": False,
+            "diff": {"added": [], "removed": []}, "holds": [str(error)],
+            "alerts": [], "published": False, "exit_code": 1,
+        }
         return 1, result
     status["map"] = status.get("map") if isinstance(status.get("map"), dict) else {}
     status["wim"] = status.get("wim") if isinstance(status.get("wim"), dict) else {}

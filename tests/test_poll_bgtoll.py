@@ -435,6 +435,61 @@ class PollBgtollTests(unittest.TestCase):
         self.assertEqual(result["state"], "FAILED")
         self.assertTrue(any("STATE_INVALID" in hold for hold in result["holds"]))
 
+    def test_invalid_status_is_preserved_and_repeated_ticks_are_network_silent(self) -> None:
+        """A valid-JSON non-object state remains untouched and blocks later source requests."""
+        with tempfile.TemporaryDirectory() as directory:
+            config = self.make_config(Path(directory))
+            config.state_dir.mkdir(parents=True, exist_ok=True)
+            damaged = b"[]\n"
+            config.status_path.write_bytes(damaged)
+            calls: list[str] = []
+            opener = self.route_opener(MAP_KML, ARCHIVE.read_bytes(), calls)
+            now = datetime(2026, 10, 24, tzinfo=timezone.utc)
+
+            first_code, first = run_poll(config, opener=opener, now=now)
+            first_bytes = config.status_path.read_bytes()
+            second_code, second = run_poll(config, opener=opener, now=now + timedelta(minutes=5))
+            second_bytes = config.status_path.read_bytes()
+
+        self.assertEqual(first_code, 1)
+        self.assertEqual(second_code, 1)
+        self.assertEqual(first["state"], "FAILED")
+        self.assertEqual(second["state"], "FAILED")
+        self.assertEqual(calls, [])
+        self.assertEqual(first_bytes, damaged)
+        self.assertEqual(second_bytes, damaged)
+
+    def test_malformed_wim_limiter_state_is_preserved_and_network_silent(self) -> None:
+        """Malformed request counters and cadence timestamps cannot reset source limits."""
+        malformed_states = [
+            {"wim": {"request_times": "not-a-list"}},
+            {"wim": {"request_times": ["not-a-timestamp"]}},
+            {"wim": {"blocked_until": "not-a-timestamp"}},
+            {"wim": {"last_request_at": "not-a-timestamp"}},
+            {"wim": {"last_good": {"retrieved_at": "not-a-timestamp"}}},
+            {"wim": {"last_good": {"semantic_sha256": "missing-time"}}},
+            {"map": {"last_request_at": "not-a-timestamp"}},
+        ]
+        for malformed in malformed_states:
+            with self.subTest(state=malformed), tempfile.TemporaryDirectory() as directory:
+                config = self.make_config(Path(directory))
+                config.state_dir.mkdir(parents=True, exist_ok=True)
+                damaged = json.dumps(malformed, separators=(",", ":")).encode("utf-8")
+                config.status_path.write_bytes(damaged)
+                calls: list[str] = []
+                opener = self.route_opener(MAP_KML, ARCHIVE.read_bytes(), calls)
+                now = datetime(2026, 10, 24, tzinfo=timezone.utc)
+
+                first_code, first = run_poll(config, opener=opener, now=now)
+                second_code, second = run_poll(config, opener=opener, now=now + timedelta(minutes=5))
+
+                self.assertEqual(first_code, 1)
+                self.assertEqual(second_code, 1)
+                self.assertEqual(first["state"], "FAILED")
+                self.assertEqual(second["state"], "FAILED")
+                self.assertEqual(calls, [])
+                self.assertEqual(config.status_path.read_bytes(), damaged)
+
     def test_stale_pid_lock_takeover(self) -> None:
         """The flock-backed wrapper safely replaces a stale PID file on the next run."""
         with tempfile.TemporaryDirectory() as directory:
