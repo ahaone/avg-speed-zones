@@ -1,0 +1,63 @@
+name: probe-bgtoll-egress
+
+# ONE-OFF MEASUREMENT WORKFLOW — delete after reading the log.
+# Question: does a GitHub-hosted runner (Azure ASN) get HTTP 200 from the BGTOLL WIM page with a
+# browser User-Agent, or the Cloudflare block page? The answer decides where the 5-minute poller runs.
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Who am I (egress ASN)
+        run: |
+          curl -sS --max-time 20 https://ipinfo.io/json || true
+          echo
+      - name: Identity ladder against the WIM page
+        run: |
+          python3 - <<'PY'
+          import gzip, urllib.request, urllib.error, hashlib
+
+          URL = "https://www.bgtoll.bg/vaprosi-i-otgovori/sredna-skorost/wim"
+          BROWSER = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                     "(KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36")
+          LIBRARY = "python-requests/2.32.3"
+
+          def probe(label, ua, extra=None):
+              headers = {"User-Agent": ua, "Accept-Encoding": "gzip"}
+              if extra:
+                  headers.update(extra)
+              req = urllib.request.Request(URL, headers=headers)
+              try:
+                  with urllib.request.urlopen(req, timeout=40) as r:
+                      status, raw, hdrs = r.status, r.read(), r.headers
+              except urllib.error.HTTPError as e:
+                  status, raw, hdrs = e.code, e.read(), e.headers
+              except Exception as e:
+                  print(f"{label}: NETWORK {type(e).__name__}: {e}")
+                  return
+              body = gzip.decompress(raw) if hdrs.get("Content-Encoding") == "gzip" else raw
+              text = body.decode("utf-8", "replace")
+              block = ("Sorry, you have been blocked" in text
+                       or "Attention Required! | Cloudflare" in text)
+              ok = "Сертифицирани отсечки за средна скорост" in text and text.count("<tr") >= 70
+              verdict = "OK" if ok else ("BLOCK_PAGE" if block else "SUSPECT")
+              print(f"{label}: {verdict} http={status} wire={len(raw)}b body={len(body)}b "
+                    f"rows={text.count('<tr')} cf-ray={hdrs.get('cf-ray')} "
+                    f"sha={hashlib.sha256(body).hexdigest()[:12]}")
+
+          browser_headers = {
+              "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+              "Accept-Language": "bg-BG,bg;q=0.9,en;q=0.8",
+              "Upgrade-Insecure-Requests": "1",
+          }
+          for i in range(1, 4):
+              probe(f"browser-UA run {i}", BROWSER, browser_headers)
+          probe("library-UA", LIBRARY)
+          probe("no-UA", "")
+          PY
