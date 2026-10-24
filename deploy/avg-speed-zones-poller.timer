@@ -1,0 +1,11 @@
+[Unit]
+Description=Run the BGTOLL poller every five minutes
+
+[Timer]
+OnCalendar=*-*-* *:0/5:00
+Persistent=true
+RandomizedDelaySec=30s
+Unit=avg-speed-zones-poller.service
+
+[Install]
+WantedBy=timers.target
