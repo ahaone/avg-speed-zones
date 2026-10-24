@@ -84,6 +84,21 @@ class PublisherTests(unittest.TestCase):
         self.assertEqual(section_out["directions"]["forward"]["status"], "PENDING_VERIFICATION")
         self.assertEqual(section_out["directions"]["reverse"]["release_state"], "QUARANTINED")
 
+    def test_retired_release_state_is_accepted_but_not_legacy(self) -> None:
+        """Accept a local retired tombstone while excluding it from the legacy projection."""
+        candidate = self.load_valid()
+        candidate["zones"] = [z for z in candidate["zones"] if z["id"] != "synthetic-zone-a"]
+        section = next(s for s in candidate["sections"] if s["section_key"] == "synthetic-zone-a")
+        section["directions"]["forward"]["release_state"] = "RETIRED"
+        section["directions"]["reverse"]["release_state"] = "RETIRED"
+        bundle, _, summary = publish_bundle.build_artifacts(candidate)
+        payload = json.loads(bundle)
+        self.assertEqual([zone["id"] for zone in payload["zones"]], ["synthetic-zone-b"])
+        self.assertEqual(summary["hold_count"], 1)
+        section_out = next(s for s in payload["sections"] if s["section_key"] == "synthetic-zone-a")
+        self.assertEqual(section_out["directions"]["forward"]["release_state"], "RETIRED")
+        self.assertEqual(section_out["directions"]["reverse"]["release_state"], "RETIRED")
+
     def test_one_direction_incomplete_section_is_held_without_blocking_complete_sections(self) -> None:
         """Hold a one-direction addition while publishing unrelated complete zones."""
         candidate = self.load_valid()

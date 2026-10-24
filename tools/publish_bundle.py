@@ -23,7 +23,7 @@ _LEGACY_FIELDS = {
     "id", "name_bg", "road", "cert_len_m", "polyline", "start_heading", "limit_by_category"
 }
 _STATUSES = {"CERTIFIED", "PENDING_VERIFICATION"}
-_RELEASE_STATES = {"ACTIVE", "UNDER_VERIFICATION", "QUARANTINED"}
+_RELEASE_STATES = {"ACTIVE", "UNDER_VERIFICATION", "QUARANTINED", "RETIRED"}
 _GATE_VALUES = {"PASS", "REVIEW", "UNVERIFIED", "QUARANTINE"}
 _GATE_NAMES = {"chainage", "ria", "length"}
 _MAX_JSON_INTEGER = (1 << 53) - 1
