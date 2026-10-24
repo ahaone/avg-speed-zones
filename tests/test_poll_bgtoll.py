@@ -399,7 +399,7 @@ class PollBgtollTests(unittest.TestCase):
 
         self.assertEqual(saved_after["map"]["last_good"]["snapshot_path"], previous_capture)
         self.assertNotEqual(saved_after["map"]["last_good"]["raw_sha256"], previous_raw)
-        self.assertFalse(saved_after["map"].get("map_changed", False))
+        self.assertFalse(saved_after.get("map_changed", False))
 
     def test_state_reports_current_tier_and_backoff_deadline(self) -> None:
         """Heartbeat reports the active backoff and stops all sources during its window."""

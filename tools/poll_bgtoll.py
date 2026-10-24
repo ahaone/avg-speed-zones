@@ -278,6 +278,8 @@ def _status_result(status: dict[str, Any], now: datetime, config: PollConfig) ->
     success = status.get("last_success") if isinstance(status.get("last_success"), dict) else None
     success_at = _parse_time(success.get("retrieved_at")) if success else None
     age = None if success_at is None else max(0, int((now - success_at).total_seconds()))
+    if success is not None and success_at is None:
+        success["invalid_retrieved_at"] = True
     health = "STALE" if age is None or age > config.max_stale_seconds else (
         "DEGRADED" if status.get("state") in {"SOURCE_BLOCKED", "FAILED", "HELD"} else "OK"
     )
@@ -532,6 +534,12 @@ def _run_poll_unlocked(
             if map_error is not None:
                 raise PollError(f"MAP_FETCH_FAILED: {map_error}")
             if map_metadata.get("http_status") != 200:
+                if _blocked_response(None, map_payload or b"", int(map_metadata.get("http_status") or 0)):
+                    map_state["last_attempt"] = _utc(now)
+                    map_state["source_metadata"] = map_metadata
+                    return _finish(status, config, now, state="SOURCE_BLOCKED", holds=["MAP_SOURCE_BLOCKED"],
+                                   alerts=[{"code": "SOURCE_BLOCKED", "at": _utc(now), "detail": "MAP_SOURCE_BLOCKED"}],
+                                   exit_code=0, tier="MAP", map_changed=False, wim_requested=False)
                 raise PollError(f"MAP_HTTP_{map_metadata.get('http_status')}")
         if not map_payload or len(map_payload) > config.max_map_bytes:
             raise PollError("MAP_EMPTY_OR_OVERSIZED_RESPONSE")
