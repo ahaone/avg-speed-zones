@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "bundle_version": "v2",
+  "generated_at": "2026-10-24T12:00:00Z",
+  "source": {
+    "url": "https://example.invalid/synthetic-legacy-snapshot.json",
+    "snapshot_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "retrieved_at": "2026-10-24T11:59:00Z"
+  },
+  "zones": [
+    {
+      "id": "legacy-synthetic-zone",
+      "name_bg": "Синтетична стара зона",
+      "road": "S-9",
+      "cert_len_m": 2500,
+      "polyline": [[40.0, 21.0], [40.1, 21.1]],
+      "start_heading": 180,
+      "limit_by_category": {"A": 90, "B": null}
+    }
+  ]
+}
