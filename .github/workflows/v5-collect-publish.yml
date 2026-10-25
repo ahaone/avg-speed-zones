@@ -85,18 +85,28 @@ jobs:
             --bundle-version "${{ steps.version.outputs.version }}" \
             --write
 
+      - name: Project sections into app zones
+        run: |
+          python3 src/tools/project_sections.py \
+            --candidate work/candidate.json \
+            --output work/candidate-v5.json
+
       - name: Fail closed when there is no section catalogue
         run: |
           python3 - <<'PY'
           import json, sys
-          candidate = json.load(open("work/candidate.json", encoding="utf-8"))
+          candidate = json.load(open("work/candidate-v5.json", encoding="utf-8"))
           summary = candidate.get("summary", {})
           sections = candidate.get("sections", [])
-          print(f"section_count={summary.get('section_count')} legacy_zone_count={summary.get('legacy_zone_count')}")
+          zones = candidate.get("zones", [])
+          print(f"section_count={summary.get('section_count')} legacy_zone_count={summary.get('legacy_zone_count')} app_zones={len(zones)}")
           if not sections or summary.get("section_count", 0) == 0:
               print("::error::candidate has no sections; refusing to replace the v5 feed")
               sys.exit(1)
-          print("sections-only v5 is allowed; legacy zones.json is not touched")
+          if not zones:
+              print("::error::candidate has no app-compatible zones; refusing to publish an empty catalogue")
+              sys.exit(1)
+          print("sections are authoritative; app zones are generated; legacy zones.json is not touched")
           PY
 
       - name: Publish bundle
@@ -104,7 +114,7 @@ jobs:
         run: |
           mkdir -p v5
           python3 src/tools/publish_bundle.py \
-            --candidate work/candidate.json \
+            --candidate work/candidate-v5.json \
             --previous v5/zones.json \
             --output-dir v5 \
             --allow-empty-legacy \
