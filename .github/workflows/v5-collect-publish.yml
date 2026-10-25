@@ -69,16 +69,18 @@ jobs:
             --bundle-version v5 \
             --write
 
-      - name: Fail closed on an empty legacy projection
+      - name: Fail closed when there is no section catalogue
         run: |
           python3 - <<'PY'
           import json, sys
           candidate = json.load(open("work/candidate.json", encoding="utf-8"))
-          count = candidate["summary"]["legacy_zone_count"]
-          print(f"legacy_zone_count={count}")
-          if count == 0:
-              print("::error::candidate has 0 legacy zones; refusing to replace the live feed")
+          summary = candidate.get("summary", {})
+          sections = candidate.get("sections", [])
+          print(f"section_count={summary.get('section_count')} legacy_zone_count={summary.get('legacy_zone_count')}")
+          if not sections or summary.get("section_count", 0) == 0:
+              print("::error::candidate has no sections; refusing to replace the v5 feed")
               sys.exit(1)
+          print("sections-only v5 is allowed; legacy zones.json is not touched")
           PY
 
       - name: Publish bundle
@@ -89,6 +91,7 @@ jobs:
             --candidate work/candidate.json \
             --previous v5/zones.json \
             --output-dir v5 \
+            --allow-empty-legacy \
             --write
           git config user.name "zones-bot"
           git config user.email "bot@avg-speed.local"
