@@ -52,6 +52,22 @@ jobs:
           test -s inbox/bgtoll-wim.html || { echo "::error::missing inbox/bgtoll-wim.html"; exit 1; }
           test -s inbox/zones-live.kml || { echo "::error::missing inbox/zones-live.kml"; exit 1; }
 
+      - name: Determine next bundle version
+        id: version
+        run: |
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import json, re
+          from pathlib import Path
+          current = "v5"
+          path = Path("v5/zones.json")
+          if path.exists():
+              current = json.loads(path.read_text(encoding="utf-8")).get("bundle_version", "v5")
+          match = re.fullmatch(r"v(\d+)", str(current))
+          number = int(match.group(1)) + 1 if match else 5
+          print(f"version=v{number}")
+          print(f"previous={current}")
+          PY
+
       - name: Build inventory, verification and candidate
         run: |
           mkdir -p work
@@ -66,7 +82,7 @@ jobs:
             --verification work/verification.json \
             --kml inbox/zones-live.kml \
             --output work/candidate.json \
-            --bundle-version v5 \
+            --bundle-version "${{ steps.version.outputs.version }}" \
             --write
 
       - name: Fail closed when there is no section catalogue
