@@ -1,12 +1,12 @@
 {
   "manifest_version": 1,
   "schema_version": 1,
-  "bundle_version": "v5",
-  "generated_at": "2026-10-25T10:35:00Z",
-  "bundle_sha256": "fe1f995ba1ead2a07c9f127bb7a826d274fc1420d548c07cff9e599149512f7d",
-  "bundle_bytes": 2685037,
+  "bundle_version": "v6",
+  "generated_at": "2026-10-25T12:53:53Z",
+  "bundle_sha256": "67ad548ac1241b7a679d5cb048ec450663cd6881a8c484c916ea603e604db44a",
+  "bundle_bytes": 3364813,
   "counts": {
-    "zones": 0,
+    "zones": 35,
     "sections": 41,
     "directions": 82,
     "status_counts": {
@@ -16,22 +16,22 @@
   },
   "sources": {
     "paths": {
-      "bgtoll_snapshot": "data/bgtoll-vaprosi-i-otgovori.html",
+      "bgtoll_snapshot": "inbox/bgtoll-wim.html",
       "certificate_evidence": "",
-      "km_points": "data/reference/km_points.json",
-      "kml": "/tmp/zones-live.kml",
+      "km_points": "src/data/reference/km_points.json",
+      "kml": "inbox/zones-live.kml",
       "ria_road_links": "",
-      "verification": "/tmp/v5-pipe/verification.json"
+      "verification": "work/verification.json"
     },
-    "retrieved_at": "2026-10-25T10:35:00.263548Z",
+    "retrieved_at": "2026-10-25T12:53:53.706235Z",
     "sha256": {
       "certificate_evidence_sha256": null,
       "km_points_sha256": "cae0e566fbed59c85ce0e4f7e24f73ac401ab45b5f26b05c33296f54b172323a",
       "kml_sha256": "f60cf313f620c91d0241010e6150c449af9689cfe908e04cdba8a28d4917e3b3",
       "ria_road_links_sha256": null,
-      "verification_sha256": "22cd5defdeb47f5c1560ce9990e2e5f3b2ca16e5a9542f407ba793ee849bd833"
+      "verification_sha256": "c799d365342ce78c4c19eef6c6933dc3f5fb9c483823f10da6bdcb0b90800b54"
     },
-    "snapshot_sha256": "f53b3e32b8329305d9601ffb09fcd2ad5ffc5c3c53c96a3170616d744c409329",
-    "url": "data/bgtoll-vaprosi-i-otgovori.html"
+    "snapshot_sha256": "84b72b78853d6c212e03aef4af190434844f12abd06e59c20ca8edddfbcbb12f",
+    "url": "inbox/bgtoll-wim.html"
   }
 }
