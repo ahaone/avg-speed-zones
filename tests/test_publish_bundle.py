@@ -282,6 +282,22 @@ class PublisherTests(unittest.TestCase):
         self.assertEqual(len(payload["zones"]), 1)
         self.assertEqual(json.loads(manifest_bytes)["counts"]["sections"], 0)
 
+    def test_sections_only_requires_explicit_opt_in(self) -> None:
+        """Reject empty legacy zones by default; allow them only for the v5 sections feed."""
+        candidate = self.load_valid()
+        candidate["zones"] = []
+        with self.assertRaises(publish_bundle.ValidationError):
+            publish_bundle.build_artifacts(candidate)
+
+        bundle, manifest_bytes, summary = publish_bundle.build_artifacts(
+            candidate, allow_empty_legacy=True
+        )
+        payload = json.loads(bundle)
+        self.assertEqual(payload["zones"], [])
+        self.assertEqual(len(payload["sections"]), len(candidate["sections"]))
+        self.assertEqual(json.loads(manifest_bytes)["counts"]["zones"], 0)
+        self.assertEqual(summary["zone_count"], 0)
+
     def test_utc_timestamps_reject_date_only_and_nonzero_offsets(self) -> None:
         """Reject non-UTC timestamps that datetime.fromisoformat otherwise accepts."""
         for value in ("2026-10-24", "2026-10-24T12:00:00+01:00"):

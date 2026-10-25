@@ -259,7 +259,7 @@ def _previous_version(path: Path | None) -> str | None:
     return version
 
 
-def _validate_candidate(candidate: dict[str, Any], previous_version: str | None = None) -> tuple[list[dict[str, Any]], list[dict[str, Any]] | None, int]:
+def _validate_candidate(candidate: dict[str, Any], previous_version: str | None = None, allow_empty_legacy: bool = False) -> tuple[list[dict[str, Any]], list[dict[str, Any]] | None, int]:
     """Validate schema, metadata, legacy zones, optional sections, and their mapping."""
     _validate_json_value(candidate)
     _require(candidate.get("schema_version") == 1 and not isinstance(candidate.get("schema_version"), bool),
@@ -276,10 +276,17 @@ def _validate_candidate(candidate: dict[str, Any], previous_version: str | None 
     _parse_utc(candidate.get("generated_at"), "generated_at")
     _validate_source(candidate.get("source"))
     zones = candidate.get("zones")
-    _require(isinstance(zones, list) and bool(zones), "zones must be a non-empty array")
-    zone_list: list[dict[str, Any]] = zones
+    _require(isinstance(zones, list), "zones must be an array")
+    assert isinstance(zones, list)
+    if not zones and not allow_empty_legacy:
+        _require(False, "zones must be a non-empty array")
+    if not zones:
+        raw_sections_for_empty = candidate.get("sections")
+        _require(isinstance(raw_sections_for_empty, list) and bool(raw_sections_for_empty),
+                 "empty zones requires a non-empty sections array")
+    zone_list: list[dict[str, Any]] = list(zones)
     zone_ids: set[str] = set()
-    for index, zone in enumerate(zones):
+    for index, zone in enumerate(zone_list):
         _validate_zone(zone, index)
         _require(zone["id"] not in zone_ids, f"duplicate zone id: {zone['id']}")
         zone_ids.add(zone["id"])
@@ -322,9 +329,9 @@ def _canonical_bytes(value: Any) -> bytes:
     return (json.dumps(value, ensure_ascii=False, indent=2, allow_nan=False) + "\n").encode("utf-8")
 
 
-def build_artifacts(candidate: dict[str, Any], previous_version: str | None = None) -> tuple[bytes, bytes, dict[str, Any]]:
+def build_artifacts(candidate: dict[str, Any], previous_version: str | None = None, allow_empty_legacy: bool = False) -> tuple[bytes, bytes, dict[str, Any]]:
     """Validate and return deterministic bundle bytes, manifest bytes, and summary."""
-    zones, sections, section_count = _validate_candidate(candidate, previous_version)
+    zones, sections, section_count = _validate_candidate(candidate, previous_version, allow_empty_legacy)
     ordered_zones = sorted(zones, key=lambda zone: (zone["road"], zone["id"]))
     payload = dict(candidate)
     payload["zones"] = ordered_zones
@@ -456,6 +463,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--candidate", required=True, type=Path, help="candidate JSON path")
     parser.add_argument("--previous", type=Path, help="previous bundle for strict version check")
     parser.add_argument("--output-dir", type=Path, help="directory for zones.json and manifest.json")
+    parser.add_argument("--allow-empty-legacy", action="store_true",
+                        help="allow an empty legacy zones array when sections are present (v5 sections-only feed)")
     parser.add_argument("--write", action="store_true", help="atomically publish the validated pair")
     args = parser.parse_args(argv)
     try:
@@ -463,7 +472,7 @@ def main(argv: list[str] | None = None) -> int:
             raise ValidationError("--write requires --output-dir")
         candidate = load_candidate(args.candidate)
         previous_version = _previous_version(args.previous)
-        bundle_bytes, manifest_bytes, summary = build_artifacts(candidate, previous_version)
+        bundle_bytes, manifest_bytes, summary = build_artifacts(candidate, previous_version, args.allow_empty_legacy)
         if args.write:
             assert args.output_dir is not None  # Checked before publishing.
             publish_files(args.output_dir, bundle_bytes, manifest_bytes)
