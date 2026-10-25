@@ -1,0 +1,46 @@
+name: tesseract-ocr-probe
+on:
+  push:
+    branches: [test/tesseract-ocr]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ocr:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Tesseract and Bulgarian data
+        run: |
+          sudo -S -p '' apt-get update
+          sudo -S -p '' apt-get install -y tesseract-ocr tesseract-ocr-bul python3-pil
+          tesseract --version
+          tesseract --list-langs
+
+      - name: OCR full certificate
+        run: |
+          mkdir -p out
+          tesseract fixtures/ocr-cert.jpg out/full -l bul+eng --psm 11
+          echo '--- full OCR ---'
+          cat out/full.txt
+
+      - name: OCR callout crop
+        run: |
+          python3 - <<'PY'
+          from PIL import Image
+          im = Image.open('fixtures/ocr-cert.jpg').convert('L')
+          im.crop((400, 0, 1150, 500)).resize((2250, 1500)).save('out/callout.png')
+          PY
+          tesseract out/callout.png out/callout -l bul+eng --psm 11
+          echo '--- callout OCR ---'
+          cat out/callout.txt
+          grep -E '19[.,]?2' out/callout.txt
+
+      - name: Upload OCR output
+        uses: actions/upload-artifact@v4
+        with:
+          name: tesseract-ocr-output
+          path: out/
