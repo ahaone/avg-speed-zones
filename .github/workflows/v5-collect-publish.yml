@@ -84,18 +84,19 @@ jobs:
       - name: Publish bundle
         if: vars.V5_PUBLISH_ENABLED == 'true'
         run: |
+          mkdir -p v5
           python3 src/tools/publish_bundle.py \
             --candidate work/candidate.json \
-            --previous zones.json \
-            --output-dir . \
+            --previous v5/zones.json \
+            --output-dir v5 \
             --write
           git config user.name "zones-bot"
           git config user.email "bot@avg-speed.local"
-          git add zones.json manifest.json
+          git add v5/zones.json v5/manifest.json
           if git diff --cached --quiet; then
             echo "No bundle change to commit."
           else
-            git commit -m "zones: v5 publish $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+            git commit -m "v5: publish $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
             git push
           fi
 
