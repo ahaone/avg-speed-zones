@@ -1,0 +1,104 @@
+name: v5-collect-publish
+
+# Public runner: receives a changed BGTOLL snapshot from the phone collector,
+# checks out the private source, verifies the data, and (only when enabled)
+# publishes zones.json. No Android build, no emulator, no long test suite.
+on:
+  push:
+    paths:
+      - "inbox/bgtoll-wim.html"
+      - "inbox/zones-live.kml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v5-collect-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out public feed
+        uses: actions/checkout@v4
+
+      - name: Require private repo token
+        env:
+          PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
+        run: |
+          test -n "$PRIVATE_REPO_TOKEN" || {
+            echo "::error::PRIVATE_REPO_TOKEN is not configured; add a fine-grained read-only token for ahaone/avg-speed-zones-dev"
+            exit 1
+          }
+
+      - name: Check out private source
+        uses: actions/checkout@v4
+        with:
+          repository: ahaone/avg-speed-zones-dev
+          ref: main
+          token: ${{ secrets.PRIVATE_REPO_TOKEN }}
+          path: src
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Require the changed snapshot
+        run: |
+          test -s inbox/bgtoll-wim.html || { echo "::error::missing inbox/bgtoll-wim.html"; exit 1; }
+          test -s inbox/zones-live.kml || { echo "::error::missing inbox/zones-live.kml"; exit 1; }
+
+      - name: Build inventory, verification and candidate
+        run: |
+          mkdir -p work
+          python3 src/tools/bgtoll_inventory.py \
+            --source inbox/bgtoll-wim.html \
+            --output work/inventory.json
+          python3 src/tools/zone_verifier.py \
+            --source inbox/bgtoll-wim.html \
+            --km-points src/data/reference/km_points.json \
+            --output work/verification.json
+          python3 src/tools/candidate_builder.py \
+            --verification work/verification.json \
+            --kml inbox/zones-live.kml \
+            --output work/candidate.json \
+            --bundle-version v5 \
+            --write
+
+      - name: Fail closed on an empty legacy projection
+        run: |
+          python3 - <<'PY'
+          import json, sys
+          candidate = json.load(open("work/candidate.json", encoding="utf-8"))
+          count = candidate["summary"]["legacy_zone_count"]
+          print(f"legacy_zone_count={count}")
+          if count == 0:
+              print("::error::candidate has 0 legacy zones; refusing to replace the live feed")
+              sys.exit(1)
+          PY
+
+      - name: Publish bundle
+        if: vars.V5_PUBLISH_ENABLED == 'true'
+        run: |
+          python3 src/tools/publish_bundle.py \
+            --candidate work/candidate.json \
+            --previous zones.json \
+            --output-dir . \
+            --write
+          git config user.name "zones-bot"
+          git config user.email "bot@avg-speed.local"
+          git add zones.json manifest.json
+          if git diff --cached --quiet; then
+            echo "No bundle change to commit."
+          else
+            git commit -m "zones: v5 publish $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+            git push
+          fi
+
+      - name: Publishing disabled notice
+        if: vars.V5_PUBLISH_ENABLED != 'true'
+        run: echo "V5_PUBLISH_ENABLED is not true; verification ran, publication skipped."
