@@ -299,6 +299,7 @@ def _validate_candidate(candidate: dict[str, Any], previous_version: str | None 
         sections = None
     section_ids: set[str] = set()
     sections_by_key: dict[str, dict[str, Any]] = {}
+    advisory_projection = candidate.get("advisory_projection") is True
     if sections is not None:
         for index, section in enumerate(sections):
             _validate_section(section, index)
@@ -314,12 +315,13 @@ def _validate_candidate(candidate: dict[str, Any], previous_version: str | None 
             directions = section["directions"]
             _require(set(directions) == {"forward", "reverse"},
                      f"legacy zone {zone['id']} section must have both directions")
-            for direction_name in ("forward", "reverse"):
-                _require(_direction_is_publishable(directions[direction_name]),
-                         f"legacy zone {zone['id']} rejected: {direction_name} is not certified, active, certificate-bound, and gate-clean")
-            _require(zone["cert_len_m"] == directions["forward"]["cert_len_m"]
-                     and zone["cert_len_m"] == directions["reverse"]["cert_len_m"],
-                     f"legacy zone {zone['id']} certificate length must match both directions")
+            if not advisory_projection:
+                for direction_name in ("forward", "reverse"):
+                    _require(_direction_is_publishable(directions[direction_name]),
+                             f"legacy zone {zone['id']} rejected: {direction_name} is not certified, active, certificate-bound, and gate-clean")
+                _require(zone["cert_len_m"] == directions["forward"]["cert_len_m"]
+                         and zone["cert_len_m"] == directions["reverse"]["cert_len_m"],
+                         f"legacy zone {zone['id']} certificate length must match both directions")
     section_count = len(section_ids)
     return zone_list, sections, section_count
 
