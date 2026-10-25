@@ -83,6 +83,7 @@ jobs:
             --kml inbox/zones-live.kml \
             --output work/candidate.json \
             --bundle-version "${{ steps.version.outputs.version }}" \
+            --allow-uncertified-active \
             --write
 
       - name: Project sections into app zones
