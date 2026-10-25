@@ -1,0 +1,37 @@
+{
+  "manifest_version": 1,
+  "schema_version": 1,
+  "bundle_version": "v5",
+  "generated_at": "2026-10-25T10:35:00Z",
+  "bundle_sha256": "fe1f995ba1ead2a07c9f127bb7a826d274fc1420d548c07cff9e599149512f7d",
+  "bundle_bytes": 2685037,
+  "counts": {
+    "zones": 0,
+    "sections": 41,
+    "directions": 82,
+    "status_counts": {
+      "CERTIFIED": 73,
+      "PENDING_VERIFICATION": 9
+    }
+  },
+  "sources": {
+    "paths": {
+      "bgtoll_snapshot": "data/bgtoll-vaprosi-i-otgovori.html",
+      "certificate_evidence": "",
+      "km_points": "data/reference/km_points.json",
+      "kml": "/tmp/zones-live.kml",
+      "ria_road_links": "",
+      "verification": "/tmp/v5-pipe/verification.json"
+    },
+    "retrieved_at": "2026-10-25T10:35:00.263548Z",
+    "sha256": {
+      "certificate_evidence_sha256": null,
+      "km_points_sha256": "cae0e566fbed59c85ce0e4f7e24f73ac401ab45b5f26b05c33296f54b172323a",
+      "kml_sha256": "f60cf313f620c91d0241010e6150c449af9689cfe908e04cdba8a28d4917e3b3",
+      "ria_road_links_sha256": null,
+      "verification_sha256": "22cd5defdeb47f5c1560ce9990e2e5f3b2ca16e5a9542f407ba793ee849bd833"
+    },
+    "snapshot_sha256": "f53b3e32b8329305d9601ffb09fcd2ad5ffc5c3c53c96a3170616d744c409329",
+    "url": "data/bgtoll-vaprosi-i-otgovori.html"
+  }
+}
