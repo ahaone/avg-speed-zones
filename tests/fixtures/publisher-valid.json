@@ -1,0 +1,82 @@
+{
+  "schema_version": 1,
+  "bundle_version": "v5",
+  "generated_at": "2026-10-24T12:00:00Z",
+  "source": {
+    "url": "https://example.invalid/synthetic-snapshot.json",
+    "snapshot_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "retrieved_at": "2026-10-24T11:59:00Z"
+  },
+  "zones": [
+    {
+      "id": "synthetic-zone-b",
+      "name_bg": "Синтетична зона Б",
+      "road": "S-2",
+      "cert_len_m": 1200,
+      "polyline": [[42.0, 23.0], [42.01, 23.01]],
+      "start_heading": 90.0,
+      "limit_by_category": {"A": 90, "B": 90}
+    },
+    {
+      "id": "synthetic-zone-a",
+      "name_bg": "Синтетична зона А",
+      "road": "S-1",
+      "cert_len_m": 1000,
+      "polyline": [[41.0, 22.0], [41.01, 22.01]],
+      "start_heading": 45.0,
+      "limit_by_category": {"A": 90, "B": null}
+    }
+  ],
+  "sections": [
+    {
+      "section_key": "synthetic-zone-b",
+      "road": "S-2",
+      "name_bg": "Синтетична зона Б",
+      "directions": {
+        "forward": {
+          "name_bg": "Напред Б",
+          "status": "CERTIFIED",
+          "release_state": "ACTIVE",
+          "cert_len_m": 1200,
+          "cert_url": "https://example.invalid/synthetic-cert-b-forward.png",
+          "cert_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "gates": {"chainage": "PASS", "ria": "PASS", "length": "PASS"}
+        },
+        "reverse": {
+          "name_bg": "Назад Б",
+          "status": "CERTIFIED",
+          "release_state": "ACTIVE",
+          "cert_len_m": 1200,
+          "cert_url": "https://example.invalid/synthetic-cert-b-reverse.png",
+          "cert_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "gates": {"chainage": "PASS", "ria": "PASS", "length": "PASS"}
+        }
+      }
+    },
+    {
+      "section_key": "synthetic-zone-a",
+      "road": "S-1",
+      "name_bg": "Синтетична зона А",
+      "directions": {
+        "forward": {
+          "name_bg": "Напред А",
+          "status": "CERTIFIED",
+          "release_state": "ACTIVE",
+          "cert_len_m": 1000,
+          "cert_url": "https://example.invalid/synthetic-cert-a-forward.png",
+          "cert_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "gates": {"chainage": "PASS", "ria": "PASS", "length": "PASS"}
+        },
+        "reverse": {
+          "name_bg": "Назад А",
+          "status": "CERTIFIED",
+          "release_state": "ACTIVE",
+          "cert_len_m": 1000,
+          "cert_url": "https://example.invalid/synthetic-cert-a-reverse.png",
+          "cert_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "gates": {"chainage": "PASS", "ria": "PASS", "length": "PASS"}
+        }
+      }
+    }
+  ]
+}

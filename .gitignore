@@ -1,0 +1,14 @@
+.work/
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+node_modules/
+.idea/
+.vscode/
+build/
+dist/
+coverage/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
